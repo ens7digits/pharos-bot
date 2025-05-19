@@ -27,25 +27,35 @@ Follow these steps to set up and run the bot:
    ```bash
    git clone https://github.com/ens7digits/pharos-bot.git
    cd pharos-bot
-#!/bin/bash
+   
+2. **Install dependencies:**
 
-# 1. Create the Project Directory and Navigate Into It
-mkdir pharos-bot && cd pharos-bot
+   ```bash
+   npm install
 
-# 2. Initialize Node.js Project
-npm init -y
+3. **Create a .env file in the root directory with your private keys:**
 
-# 3. Install Required Dependencies
-npm install axios dotenv ethers
+   ```bash
+   PRIVATE_KEY_1=your_first_private_key_here
+   PRIVATE_KEY_2=your_second_private_key_here
+   
+4. **(Optional) Add proxies to proxies.txt (one per line):**
+   
+   ```bash
+   PRIVATE_KEY_1=your_first_private_key_here
+   http://user:pass@ip:port
+   socks5://user:pass@ip:port
 
-# 4. Create the .env file with necessary environment variables
-echo -e "WALLETS=your_private_key1,your_private_key2\nRPC_URL=https://rpc.pharosnetwork.xyz\nFAUCET_URL=https://faucet.pharosnetwork.xyz" > .env
+5. **Run the Bot:**
+   
+   ```bash
+   node index.js
+   
+## Configuration ⚙️
 
-# 5. (Optional) Create proxies.txt file if using proxies
-echo -e "http://127.0.0.1:8080\nhttp://127.0.0.2:8080" > proxies.txt
+   The bot comes with default settings for the Pharos Testnet, but you can modify:
 
-# 6. Create the index.js file for the bot logic (can be filled with your bot code later)
-touch index.js
-
-echo "Project setup completed! Please update .env, proxies.txt, and index.js as needed."
-
+   .Network RPC URL in networkConfig
+   .Contract addresses in tokens object
+   .Swap amounts in performSwap function
+   .Transfer amounts in transferPHRS function
