@@ -1,26 +1,30 @@
-# Pharos Auto Bot
+# Pharos Testnet Auto Bot
 
-An automated bot to perform actions on the Pharos Testnet, such as token swaps, faucet claims, and daily check-ins.
+An automated bot for interacting with the Pharos Testnet, including tasks like swaps, faucet claims, and daily check-ins to potentially qualify for airdrops.
 
-## Features
+## Features ✨
 
-- Automatically claim from the Pharos faucet
-- Perform token swaps
-- Execute daily check-ins
-- Supports proxy usage
-- Multiple wallet support via `.env`
+- **Automated Swaps**: Performs random swaps between WPHRS and USDC tokens.
+- **PHRS Transfers**: Sends small amounts of PHRS to random addresses.
+- **Faucet Claims**: Automatically claims testnet tokens from the faucet.
+- **Daily Check-ins**: Completes daily tasks for potential rewards.
+- **Proxy Support**: Rotates proxies for each operation (optional).
+- **Multi-wallet Support**: Handles multiple wallets through `.env`.
 
-## Requirements
+## Prerequisites 🛠️
 
-- Node.js v16 or higher
-- npm (Node Package Manager)
-- `.env` file with wallet private keys and endpoints
-- Optional: `proxies.txt` for rotating proxies
+- **Node.js v16+** or higher
+- **npm** (Node Package Manager) or **yarn**
+- Pharos Testnet wallet with private keys.
+- (Optional) Proxy list in `proxies.txt` for proxy rotation.
 
-## How to Use
+## How to Use 📋
 
-1. Clone this repository:
+Follow these steps to set up and run the bot:
 
-```bash
-git clone https://github.com/ens7digits/pharos-bot.git
-cd pharos-bot
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/ens7digits/pharos-bot.git
+   cd pharos-bot
+
