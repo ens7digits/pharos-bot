@@ -42,7 +42,6 @@ Follow these steps to set up and run the bot:
 4. **(Optional) Add proxies to proxies.txt (one per line):**
    
    ```bash
-   PRIVATE_KEY_1=your_first_private_key_here
    http://user:pass@ip:port
    socks5://user:pass@ip:port
 
