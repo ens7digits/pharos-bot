@@ -54,8 +54,3 @@ Follow these steps to set up and run the bot:
 ## Configuration ⚙️
 
    The bot comes with default settings for the Pharos Testnet, but you can modify:
-
-   .Network RPC URL in networkConfig
-   .Contract addresses in tokens object
-   .Swap amounts in performSwap function
-   .Transfer amounts in transferPHRS function
