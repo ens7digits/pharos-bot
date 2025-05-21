@@ -26,7 +26,7 @@ const logger = {
   banner: () => {
     console.log(`${colors.cyan}${colors.bold}`);
     console.log('-------------------------------------------------');
-    console.log(' Pharos Testnet Auto Bot - SevenDGT');
+    console.log(' Pharos Testnet Bot - https://x.com/0xEns7digits');
     console.log('-------------------------------------------------');
     console.log(`${colors.reset}\n`);
   },
@@ -42,6 +42,7 @@ const networkConfig = {
 const tokens = {
   USDC: '0xad902cf99c2de2f1ba5ec4d642fd7e49cae9ee37',
   WPHRS: '0x76aaada469d23216be5f7c596fa25f282ff9b364',
+  USDT: '0xed59de2d7ad9c043442e381231ee3646fc3c2939',
 };
 
 const contractAddress = '0x1a4de519154ae51200b0ad7c90f7fac75547888a';
@@ -49,6 +50,7 @@ const contractAddress = '0x1a4de519154ae51200b0ad7c90f7fac75547888a';
 const tokenDecimals = {
   WPHRS: 18,
   USDC: 6,
+  USDT: 18,
 };
 
 // ABI untuk kontrak utama, hanya fungsi multicall yang didefinisikan
@@ -107,6 +109,8 @@ const setupProvider = (proxy = null) => {
 const pairOptions = [
   { id: 1, from: 'WPHRS', to: 'USDC' },
   { id: 2, from: 'USDC', to: 'WPHRS' },
+  { id: 3, from: 'WPHRS', to: 'USDT' },
+  { id: 4, from: 'USDT', to: 'WPHRS' },
 ];
 
 const checkBalanceAndApproval = async (wallet, tokenAddress, tokenSymbol, amount, decimals, spender) => {
@@ -150,31 +154,20 @@ const getMulticallData = (pair, amount, walletAddress) => {
     
     let innerCallData;
 
-    if (fromTokenSymbol === 'WPHRS' && toTokenSymbol === 'USDC') {
+    if (
+      (fromTokenSymbol === 'WPHRS' && (toTokenSymbol === 'USDC' || toTokenSymbol === 'USDT')) ||
+      ((fromTokenSymbol === 'USDC' || fromTokenSymbol === 'USDT') && toTokenSymbol === 'WPHRS')
+    ) {
       innerCallData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'address', 'uint24', 'address', 'uint256', 'uint256', 'uint160'], // uint24 untuk fee, uint160 untuk sqrtPriceLimitX96
+        ['address', 'address', 'uint24', 'address', 'uint256', 'uint256', 'uint160'],
         [
-          tokens.WPHRS,       // tokenIn
-          tokens.USDC,        // tokenOut
-          500,                // fee tier (contoh, bisa 3000, 10000. HARUS BENAR)
-          walletAddress,      // recipient
-          scaledAmount,       // amountIn (menggunakan variabel yang sudah di-scale)
-          ethers.toBigInt(0), // amountOutMinimum (0 berarti terima berapapun, hati-hati slippage)
-          ethers.toBigInt(0), // sqrtPriceLimitX96 (0 jika tidak ada batasan harga, atau gunakan deadline jika parameter ke-7 adalah deadline)
-                              // Jika parameter ke-7 adalah deadline, gunakan subCallDeadline
-        ]
-      );
-    } else if (fromTokenSymbol === 'USDC' && toTokenSymbol === 'WPHRS') {
-      innerCallData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'address', 'uint24', 'address', 'uint256', 'uint256', 'uint160'], // uint24 untuk fee, uint160 untuk sqrtPriceLimitX96
-        [
-          tokens.USDC,        // tokenIn
-          tokens.WPHRS,       // tokenOut
-          500,                // fee tier (contoh)
-          walletAddress,      // recipient (menggunakan walletAddress)
-          scaledAmount,       // amountIn (menggunakan variabel yang sudah di-scale)
-          ethers.toBigInt(0), // amountOutMinimum
-          ethers.toBigInt(0), // sqrtPriceLimitX96 (atau subCallDeadline jika itu yang diharapkan)
+          tokens[fromTokenSymbol],   // tokenIn
+          tokens[toTokenSymbol],     // tokenOut
+          500,                       // fee
+          walletAddress,             // recipient
+          scaledAmount,              // amountIn
+          ethers.toBigInt(0),        // amountOutMinimum
+          ethers.toBigInt(0),        // sqrtPriceLimitX96
         ]
       );
     } else {
@@ -196,7 +189,7 @@ const getMulticallData = (pair, amount, walletAddress) => {
 
 const performSwap = async (wallet, provider, swapIndex) => {
   try {
-    const pair = pairOptions[Math.floor(Math.random() * pairOptions.length)];
+    const pair = pairOptions[swapIndex % pairOptions.length];
     const amount = pair.from === 'WPHRS' ? 0.001 : 0.1;
     const fromTokenSymbol = pair.from;
     const toTokenSymbol = pair.to;
@@ -318,11 +311,15 @@ const transferPHRS = async (wallet, provider, transferIndex) => {
       return;
     }
 
+    // Get the current nonce
+    const nonce = await provider.getTransactionCount(wallet.address, 'latest');
+    
     const tx = await wallet.sendTransaction({
       to: toAddress,
       value: required,
       gasLimit: ethers.toBigInt(21000),
-      gasPrice: ethers.toBigInt(0), // Sesuai dengan swap, PHRS testnet mungkin 0 gasPrice
+      gasPrice: ethers.toBigInt(0),
+      nonce: nonce // Explicitly set the nonce
     });
 
     logger.loading(`[Transfer ${transferIndex + 1}] Transaction sent (${tx.hash}). Waiting for confirmation...`);
@@ -336,7 +333,10 @@ const transferPHRS = async (wallet, provider, transferIndex) => {
   } catch (error) {
     logger.error(`[Transfer ${transferIndex + 1}] FAILED: ${error.message}`);
     if (error.code === 'CALL_EXCEPTION' && error.reason) {
-        logger.error(`  Revert Reason: ${error.reason}`);
+      logger.error(`  Revert Reason: ${error.reason}`);
+    }
+    if (error.code === 'NONCE_EXPIRED') {
+      logger.warn('  Nonce expired, will retry with new nonce');
     }
   }
 };
@@ -539,7 +539,7 @@ const main = async () => {
   logger.banner();
 
   const proxies = loadProxies();
-  const privateKeys = [process.env.PRIVATE_KEY_1, process.env.PRIVATE_KEY_2].filter(pk => pk && pk.trim() !== '');
+  const privateKeys = [process.env.PRIVATE_KEY_1, process.env.PRIVATE_KEY_2, process.env.PRIVATE_KEY_3, process.env.PRIVATE_KEY_4].filter(pk => pk && pk.trim() !== '');
   if (!privateKeys.length) {
     logger.error('No valid private keys found in .env. Ensure PRIVATE_KEY_1 (and optionally PRIVATE_KEY_2) are set.');
     return;
@@ -551,11 +551,11 @@ const main = async () => {
     logger.warn('Running in direct mode (no proxies).');
   }
 
-  const numSwapsPerWallet = parseInt(process.env.NUM_SWAPS_PER_WALLET) || 5; // Default 5 swap
+  const numSwapsPerWallet = parseInt(process.env.NUM_SWAPS_PER_WALLET) || 10; // Default 5 swap
   const numTransfersPerWallet = parseInt(process.env.NUM_TRANSFERS_PER_WALLET) || 5; // Default 5 transfer
   const delayBetweenActionsMs = (parseInt(process.env.DELAY_ACTIONS_SEC) || 5) * 1000; // Default 5 detik
   const delayBetweenWalletsMs = (parseInt(process.env.DELAY_WALLETS_SEC) || 10) * 1000; // Default 10 detik
-  const mainLoopDelayMinutes = parseInt(process.env.MAIN_LOOP_DELAY_MIN) || 30; // Default 30 menit
+  const mainLoopDelayMinutes = parseInt(process.env.MAIN_LOOP_DELAY_MIN) || 120; // Default 30 menit
 
   logger.info(`Configuration: Swaps/wallet=${numSwapsPerWallet}, Transfers/wallet=${numTransfersPerWallet}, ActionDelay=${delayBetweenActionsMs/1000}s, WalletDelay=${delayBetweenWalletsMs/1000}s, LoopDelay=${mainLoopDelayMinutes}min`);
 
@@ -595,7 +595,7 @@ const main = async () => {
       logger.step(`Starting ${numSwapsPerWallet} token swaps...`);
       for (let i = 0; i < numSwapsPerWallet; i++) {
         await performSwap(wallet, provider, i);
-        if (i < numSwapsPerWallet - 1) { // Jangan delay setelah aksi terakhir
+        if (i < numSwapsPerWallet - 1) { // Jangan delay setelah aksi terakhir awdawd
             await new Promise(resolve => setTimeout(resolve, delayBetweenActionsMs));
         }
       }
